@@ -59,6 +59,7 @@ Custom_Protocol_StateTypeDef Custom_Protocol_SendData(
     custom_protocol->msg->command = CUSTOM_PROTOCOL_COMMAND_WRITE;
     custom_protocol->msg->length = length;
     custom_protocol->msg->checksum = calculate_checksum(data, length);
+    
     HAL_UART_Transmit(custom_protocol->huart,
                       custom_protocol->msg->start_bit, sizeof(custom_protocol->msg->start_bit), HAL_MAX_DELAY);
 
@@ -73,8 +74,9 @@ Custom_Protocol_StateTypeDef Custom_Protocol_SendData(
     HAL_UART_Transmit(custom_protocol->huart, data,
                       length, HAL_MAX_DELAY);
 
-    HAL_UART_Transmit(custom_protocol->huart, custom_protocol->msg->checksum,
-                      sizeof(custom_protocol->msg->checksum), HAL_MAX_DELAY);
+    data_length[0] = (uint8_t)(custom_protocol->msg->checksum >> 8);
+    data_length[1] = (uint8_t)(custom_protocol->msg->checksum & 0xFF);
+    HAL_UART_Transmit(custom_protocol->huart, data_length, sizeof(data_length), HAL_MAX_DELAY);
 
     HAL_UART_Transmit(custom_protocol->huart, custom_protocol->msg->end_bit,
                       sizeof(custom_protocol->msg->end_bit), HAL_MAX_DELAY);

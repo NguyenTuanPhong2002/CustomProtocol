@@ -46,13 +46,13 @@ typedef struct
     DMA_HandleTypeDef *hdma;
     CustomProtocolMessage *msg;
     CustomProtocolInterrupt flag;
-    uint8_t buffer[CUSTOM_PROTOCOL_SIZE];
 } Custom_Protocol_HandleTypeDef;
 
 uint16_t custom_protocol_checksum(uint8_t *data, uint16_t length);
 
-Custom_Protocol_StateTypeDef Custom_Protocol_Init(Custom_Protocol_HandleTypeDef *custom_protocol, UART_HandleTypeDef *huart, DMA_HandleTypeDef *hdma);
+Custom_Protocol_StateTypeDef Custom_Protocol_Init(Custom_Protocol_HandleTypeDef *custom_protocol);
 Custom_Protocol_StateTypeDef Custom_Protocol_SendData(Custom_Protocol_HandleTypeDef *custom_protocol, uint8_t *data, uint16_t length);
 Custom_Protocol_StateTypeDef Custom_Protocol_ReceiveData(Custom_Protocol_HandleTypeDef *custom_protocol, uint32_t timeout);
+Custom_Protocol_StateTypeDef Custom_Protocol_SetFlag(Custom_Protocol_HandleTypeDef *const custom_protocol, const CustomProtocolInterrupt status);
 
 #endif

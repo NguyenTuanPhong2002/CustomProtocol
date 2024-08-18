@@ -6,26 +6,13 @@
 #include "custom_protocol.h"
 #include <string.h>
 
-Custom_Protocol_StateTypeDef Custom_Protocol_Init(
-    Custom_Protocol_HandleTypeDef *custom_protocol,
-    UART_HandleTypeDef *huart, DMA_HandleTypeDef *hdma)
+Custom_Protocol_StateTypeDef Custom_Protocol_Init(Custom_Protocol_HandleTypeDef *custom_protocol)
 {
     if (custom_protocol == NULL)
     {
         return CUSTOM_PROTOCOL_STATE_ERROR;
     }
 
-    if (custom_protocol->msg == NULL)
-    {
-        custom_protocol->msg = malloc(sizeof(*custom_protocol->msg));
-        if (custom_protocol->msg == NULL)
-        {
-            return CUSTOM_PROTOCOL_STATE_ERROR;
-        }
-    }
-
-    custom_protocol->huart = huart;
-    custom_protocol->hdma = hdma;
     custom_protocol->msg->start_bit = 0xFF;
     custom_protocol->msg->command = CUSTOM_PROTOCOL_COMMAND_READ;
     custom_protocol->msg->length = 0;
@@ -59,12 +46,12 @@ Custom_Protocol_StateTypeDef Custom_Protocol_SendData(
     custom_protocol->msg->command = CUSTOM_PROTOCOL_COMMAND_WRITE;
     custom_protocol->msg->length = length;
     custom_protocol->msg->checksum = calculate_checksum(data, length);
-    
-    HAL_UART_Transmit(custom_protocol->huart,
-                      custom_protocol->msg->start_bit, sizeof(custom_protocol->msg->start_bit), HAL_MAX_DELAY);
 
-    HAL_UART_Transmit(custom_protocol->huart, CUSTOM_PROTOCOL_COMMAND_WRITE,
-                      sizeof(CUSTOM_PROTOCOL_COMMAND_WRITE), HAL_MAX_DELAY);
+    HAL_UART_Transmit(custom_protocol->huart,
+                      &(custom_protocol->msg->start_bit), sizeof(custom_protocol->msg->start_bit), HAL_MAX_DELAY);
+
+	HAL_UART_Transmit(custom_protocol->huart, &custom_protocol->msg->command,
+			sizeof(custom_protocol->msg->command), HAL_MAX_DELAY);
 
     uint8_t data_length[2];
     data_length[0] = (uint8_t)(custom_protocol->msg->length >> 8);
@@ -78,9 +65,7 @@ Custom_Protocol_StateTypeDef Custom_Protocol_SendData(
     data_length[1] = (uint8_t)(custom_protocol->msg->checksum & 0xFF);
     HAL_UART_Transmit(custom_protocol->huart, data_length, sizeof(data_length), HAL_MAX_DELAY);
 
-    HAL_UART_Transmit(custom_protocol->huart, custom_protocol->msg->end_bit,
-                      sizeof(custom_protocol->msg->end_bit), HAL_MAX_DELAY);
-
+    HAL_UART_Transmit(custom_protocol->huart, (&custom_protocol->msg->end_bit), sizeof(custom_protocol->msg->end_bit), HAL_MAX_DELAY);
     custom_protocol->flag = CUSTOM_PROTOCOL_INTERRUPT_DISABLE;
 
     return CUSTOM_PROTOCOL_STATE_OK;
@@ -96,11 +81,10 @@ Custom_Protocol_StateTypeDef Custom_Protocol_ReceiveData(
 
     Custom_Protocol_StateTypeDef status = CUSTOM_PROTOCOL_STATE_BUSY;
 
-    HAL_UARTEx_ReceiveToIdle_DMA((UART_HandleTypeDef *)custom_protocol->huart,
-                                 (uint8_t *)custom_protocol->buffer, CUSTOM_PROTOCOL_SIZE);
-    __HAL_DMA_DISABLE_IT((DMA_HandleTypeDef *)custom_protocol->hdma, DMA_IT_HT);
-
-    memset(custom_protocol->buffer, '\0', CUSTOM_PROTOCOL_SIZE);
+#define RX_SIZE 20U
+    uint8_t buffer[RX_SIZE] = {0};
+    HAL_UARTEx_ReceiveToIdle_DMA(custom_protocol->huart, buffer, RX_SIZE);
+    __HAL_DMA_ENABLE_IT(custom_protocol->hdma, DMA_IT_HT);
 
     uint32_t tickStart = HAL_GetTick();
 
@@ -117,17 +101,23 @@ Custom_Protocol_StateTypeDef Custom_Protocol_ReceiveData(
         {
             if (custom_protocol->flag == CUSTOM_PROTOCOL_INTERRUPT_ENABLE)
             {
-                custom_protocol->msg->command = custom_protocol->buffer[1];
-                custom_protocol->msg->length = (custom_protocol->buffer[2] << 8) | custom_protocol->buffer[3];
-                memcpy(custom_protocol->msg->data, &custom_protocol->buffer[4],
-                       custom_protocol->msg->length);
-                custom_protocol->msg->checksum = (custom_protocol->buffer[2 + custom_protocol->msg->length] << 8) | custom_protocol->buffer[3 + custom_protocol->msg->length];
-
-                if (custom_protocol->msg->checksum == calculate_checksum(custom_protocol->msg->data,
-                                                                         custom_protocol->msg->length))
+                custom_protocol->msg->command = buffer[1];
+                if (custom_protocol->msg->command == CUSTOM_PROTOCOL_COMMAND_READ)
                 {
-                    status = CUSTOM_PROTOCOL_STATE_OK;
-                    break;
+                    custom_protocol->msg->length = (buffer[2] << 8) | buffer[3];
+                    memcpy(custom_protocol->msg->data, &buffer[4], custom_protocol->msg->length);
+                    custom_protocol->msg->checksum = (buffer[4 + custom_protocol->msg->length] << 8) | buffer[5 + custom_protocol->msg->length];
+
+                    if (custom_protocol->msg->checksum == calculate_checksum(custom_protocol->msg->data, custom_protocol->msg->length))
+                    {
+                        status = CUSTOM_PROTOCOL_STATE_OK;
+                        break;
+                    }
+                    else
+                    {
+                        status = CUSTOM_PROTOCOL_STATE_ERROR;
+                        break;
+                    }
                 }
                 else
                 {
@@ -137,6 +127,18 @@ Custom_Protocol_StateTypeDef Custom_Protocol_ReceiveData(
             }
         }
     }
-
+    custom_protocol->flag = CUSTOM_PROTOCOL_INTERRUPT_DISABLE;
     return status;
+}
+
+Custom_Protocol_StateTypeDef Custom_Protocol_SetFlag(Custom_Protocol_HandleTypeDef *const custom_protocol, const CustomProtocolInterrupt status)
+{
+    if (custom_protocol == NULL)
+    {
+        return CUSTOM_PROTOCOL_STATE_ERROR;
+    }
+
+    custom_protocol->flag = status;
+
+    return CUSTOM_PROTOCOL_STATE_OK;
 }

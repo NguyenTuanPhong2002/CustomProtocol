@@ -116,12 +116,12 @@ int main(void) {
 	MX_USART3_UART_Init();
 	/* USER CODE BEGIN 2 */
 	custom_protocolPtr = (Custom_Protocol_HandleTypeDef*) &custom_protocol;
-
-	msg.start_bit = 0x20;
-
 	custom_protocol.huart = &huart1;
 	custom_protocol.hdma = &hdma_usart1_rx;
 	custom_protocol.msg = &msg;
+	Custom_Protocol_Init(custom_protocolPtr);
+
+	msg.start_bit = 0x20;
 	custom_protocol.flag = CUSTOM_PROTOCOL_INTERRUPT_DISABLE;
 
 	Custom_Protocol_Init(custom_protocolPtr);

@@ -1,27 +1,27 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2024 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "custom_protocolAPI.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -41,14 +41,26 @@
 
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart1;
+DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
 
+Protocol_HandleTypeDef *interface;
+
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{  
+  if (huart->Instance == USART1)
+  {
+    CustomProtocol_SetFlag(interface,
+                           CUSTOM_PROTOCOL_INTERRUPT_ENABLE, Size);
+  }
+}
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -56,7 +68,7 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+extern Protocol_HandleTypeDef Protocol_Interface;
 /* USER CODE END 0 */
 
 /**
@@ -88,9 +100,17 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  interface = &Protocol_Interface;
+
+  CustomProtocol_Init(interface);
+
+  uint8_t data2 = 0x3F;
+  uint8_t data1[200] = {0};
+  uint16_t size = 5;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -100,6 +120,17 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    // CustomProtocol_TransmitData(interface, &data2, sizeof(data2));
+    if (CustomProtocol_ReciverData(interface, data1, sizeof(data1)) == PROTOCOL_OK)
+    {
+      HAL_UART_Transmit(&huart1, &data1, sizeof(data1), 1000);
+
+      // HAL_UART_Transmit(&huart1, protocol->msg->data, sizeof(protocol->msg->data), 1000);
+      // uint8_t high_byte = (protocol->msg->length >> 8) & 0xFF; // Extract high 8 bits
+      // uint8_t low_byte = protocol->msg->length & 0xFF;         // Extract low 8 bits
+      // HAL_UART_Transmit(&huart1, &high_byte, sizeof(high_byte), 1000);
+      // HAL_UART_Transmit(&huart1, &low_byte, sizeof(low_byte), 1000);
+    }
   }
   /* USER CODE END 3 */
 }
@@ -170,6 +201,22 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 2 */
 
   /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
 
 }
 

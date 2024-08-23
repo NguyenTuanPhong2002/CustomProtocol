@@ -16,6 +16,7 @@
 #define CUSTOM_PROTOCOL_COMMAND_WRITE 0x00
 
 #define CUSTOM_PROTOCOL_START_BIT 0xFF
+#define CUSTOM_PROTOCOL_END_BIT 0x00
 
 #define CUSTOM_PROTOCOL_SIZE (3000U) // 65535
 
@@ -49,9 +50,7 @@ typedef struct
     Protocol_StatusTypeDef (*Transmit)(uint8_t *pData, uint16_t size);
     Protocol_StatusTypeDef (*Receive)(uint8_t *pData, uint16_t size);
     Protocol_StatusTypeDef (*Interupt)(void);
-#ifdef CUSTOM_PROTOCOL_TIMEOUT
     uint32_t (*get_tick_ms)(void);
-#endif
 
     Protocol_MsgTypeDef *msg;
     CustomProtocolInterrupt flag;

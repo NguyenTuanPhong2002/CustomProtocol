@@ -46,14 +46,11 @@ Protocol_StatusTypeDef UART_Receive(uint8_t *pData, uint16_t size)
     return PROTOCOL_OK;
 }
 
-uint32_t UART_Gettick(void)
-{
-    return HAL_GetTick();
-}
-
 Protocol_HandleTypeDef Protocol_Interface = {
     .Init = UART_Init,
     .Transmit = UART_Transmit,
     .Receive = UART_Receive,
-    .get_tick_ms = UART_Gettick,
+#if CUSTOM_PROTOCOL_TIMEOUT
+    .get_tick_ms = HAL_GetTick,
+#endif
 };

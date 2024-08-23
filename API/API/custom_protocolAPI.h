@@ -14,6 +14,5 @@
 Protocol_StatusTypeDef UART_init(void);
 Protocol_StatusTypeDef UART_Transmit(uint8_t *pData, uint16_t size);
 Protocol_StatusTypeDef UART_Receive(uint8_t *pData, uint16_t size);
-uint32_t UART_Gettick(void);
 
 #endif
